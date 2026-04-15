@@ -1,7 +1,10 @@
+import BackgroundFetch from 'react-native-background-fetch';
+import { database } from '../data/database';
+import { NotificationService } from './NotificationService';
 import { SyncService } from './SyncService';
 
 export const initBackgroundFetch = async () => {
-  const status = await BackgroundFetch.configure({
+  await BackgroundFetch.configure({
     minimumFetchInterval: 60, // 60 minutes (Closest to hourly as Android allows)
     stopOnTerminate: false,
     enableHeadless: true,
@@ -29,6 +32,7 @@ const performBackgroundProcessing = async () => {
       log.value = 1;
       log.unit = 'system';
       log.timestamp = Date.now();
+      log.createdAt = new Date();
     });
   });
 

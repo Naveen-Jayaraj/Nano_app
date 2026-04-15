@@ -1,8 +1,18 @@
 import { appSchema, tableSchema } from '@nozbe/watermelondb';
 
 export default appSchema({
-  version: 1,
+  version: 2,
   tables: [
+    tableSchema({
+      name: 'health_logs',
+      columns: [
+        { name: 'type', type: 'string', isIndexed: true },
+        { name: 'value', type: 'number' },
+        { name: 'unit', type: 'string' },
+        { name: 'timestamp', type: 'number', isIndexed: true },
+        { name: 'created_at', type: 'number' },
+      ],
+    }),
     tableSchema({
       name: 'user_profile',
       columns: [

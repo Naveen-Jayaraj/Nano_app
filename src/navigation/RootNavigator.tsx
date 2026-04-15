@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { BottomTabNavigator } from './BottomTabNavigator';
 import { OnboardingProfile } from '../screens/onboarding/OnboardingProfile';
 import { GoalSelection } from '../screens/onboarding/GoalSelection';
 import { database } from '../data/database';
-import { withDatabase } from '@nozbe/watermelondb/DatabaseProvider';
 import withObservables from '@nozbe/with-observables';
 
 const Stack = createNativeStackNavigator();

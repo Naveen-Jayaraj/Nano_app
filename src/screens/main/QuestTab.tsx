@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { Card, Title, Paragraph, Button, Text, ProgressBar, Surface } from 'react-native-paper';
+import { Card, Title, Paragraph, Text, ProgressBar, Surface, List } from 'react-native-paper';
 import { getQuestForHour, isSleepTime } from '../../analytics/QuestManager';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import LinearGradient from 'react-native-linear-gradient';
@@ -94,7 +94,7 @@ export const QuestTab = () => {
             <List.Item
               title="Social Fast"
               description="No social media for 2 hours today."
-              left={props => <MaterialCommunityIcons name="account-off-outline" size={24} color={COLORS.secondary} style={styles.listIcon} />}
+              left={() => <MaterialCommunityIcons name="account-off-outline" size={24} color={COLORS.secondary} style={styles.listIcon} />}
             />
          </Card>
       </View>

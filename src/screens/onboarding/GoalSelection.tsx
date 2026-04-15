@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { Button, Text, Title, Surface } from 'react-native-paper';
+import { Text, Title, Surface } from 'react-native-paper';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { database } from '../../data/database';
 import { calculateBMI, deriveBaselines } from '../../utils/healthUtils';

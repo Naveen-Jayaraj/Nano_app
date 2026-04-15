@@ -6,7 +6,8 @@ import withObservables from '@nozbe/with-observables';
 import { COLORS } from '../../utils/theme';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { Q } from '@nozbe/watermelondb';
-import { SyncService } from '../../services/SyncService';
+import { SyncService, SyncStatus } from '../../services/SyncService';
+import { Button, ActivityIndicator, Banner } from 'react-native-paper';
 
 const LogItem = ({ log }: { log: any }) => {
   if (!log) return null;
@@ -26,6 +27,10 @@ const LogItem = ({ log }: { log: any }) => {
   
   if (rawType === 'steps') { icon = 'walk'; color = '#22c55e'; }
   else if (rawType === 'battery') { icon = 'battery'; color = '#f59e0b'; }
+  else if (rawType === 'charging') { icon = 'flash'; color = '#3b82f6'; }
+  else if (rawType === 'temperature') { icon = 'thermometer'; color = '#ef4444'; }
+  else if (rawType === 'uptime') { icon = 'clock-outline'; color = '#8b5cf6'; }
+  else if (rawType.startsWith('location')) { icon = 'map-marker'; color = '#ec4899'; }
   else if (rawType === 'sync') { icon = 'sync'; color = COLORS.primary; }
 
   return (
@@ -43,16 +48,102 @@ const LogItem = ({ log }: { log: any }) => {
 };
 
 const RawDataTabBase = ({ logs }: { logs: any[] }) => {
-  // Sync on mount to verify sensors live
+  const [syncStatus, setSyncStatus] = React.useState<SyncStatus>(SyncService.status);
+  const [lastError, setLastError] = React.useState<string | null>(SyncService.lastError);
+
+  // Sync on mount and subscribe to updates
   useEffect(() => {
+    const unsubscribe = SyncService.subscribe((status, error) => {
+      setSyncStatus(status);
+      setLastError(error);
+    });
+    
     SyncService.syncAll().catch(err => console.error('Data tab sync failed', err));
+    
+    return unsubscribe;
   }, []);
+
+  const handleManualSync = () => {
+    SyncService.syncAll();
+  };
 
   return (
     <View style={styles.container}>
       <Surface style={styles.header} elevation={2}>
-        <Title style={styles.title}>Developer Logs</Title>
-        <Text style={styles.subtitle}>Showing latest 50 live data points from sensors</Text>
+        <View style={styles.headerMain}>
+          <View>
+            <Title style={styles.title}>Developer Logs</Title>
+            <Text style={styles.subtitle}>Showing latest 50 live data points</Text>
+          </View>
+          <Button 
+            mode="contained-tonal" 
+            onPress={handleManualSync}
+            loading={syncStatus === 'syncing'}
+            disabled={syncStatus === 'syncing'}
+            style={styles.syncButton}
+          >
+            Sync Now
+          </Button>
+        </View>
+
+        <Divider style={styles.headerDivider} />
+
+        <View style={styles.statusRow}>
+          <View style={styles.statusLabel}>
+            {syncStatus === 'syncing' ? (
+              <ActivityIndicator size={14} color={COLORS.primary} />
+            ) : (
+              <MaterialCommunityIcons 
+                name={syncStatus === 'failed' ? 'alert-circle' : 'check-circle'} 
+                size={16} 
+                color={syncStatus === 'failed' ? '#ef4444' : '#22c55e'} 
+              />
+            )}
+            <Text style={[
+              styles.statusText, 
+              { color: syncStatus === 'failed' ? '#ef4444' : COLORS.muted }
+            ]}>
+              Status: {syncStatus.toUpperCase()}
+            </Text>
+          </View>
+          <Text style={styles.logCount}>{logs.length} entries</Text>
+        </View>
+      </Surface>
+
+      {lastError && (
+        <Banner
+          visible={!!lastError}
+          actions={[{ label: 'Dismiss', onPress: () => setLastError(null) }]}
+          icon="alert"
+          style={styles.errorBanner}
+        >
+          {lastError}
+        </Banner>
+      )}
+
+      <Surface style={styles.specialAccess} elevation={1}>
+        <Text style={styles.specialTitle}>Special Permissions Needed</Text>
+        <Text style={styles.specialSub}>For App Usage, Screen Time & Notifications</Text>
+        <View style={styles.specialButtons}>
+          <Button 
+            mode="outlined" 
+            compact 
+            onPress={() => PermissionService.openUsageAccessSettings()}
+            style={styles.accessBtn}
+            labelStyle={{ fontSize: 11 }}
+          >
+            Usage Access
+          </Button>
+          <Button 
+            mode="outlined" 
+            compact 
+            onPress={() => PermissionService.openNotificationListenerSettings()}
+            style={styles.accessBtn}
+            labelStyle={{ fontSize: 11 }}
+          >
+            Notification Access
+          </Button>
+        </View>
       </Surface>
       
       <FlatList
@@ -84,7 +175,77 @@ export const RawDataTab = withDatabase(enhance(RawDataTabBase));
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
-  header: { padding: 20, backgroundColor: 'white', borderBottomLeftRadius: 24, borderBottomRightRadius: 24, marginBottom: 10 },
+  header: { 
+    padding: 20, 
+    backgroundColor: 'white', 
+    borderBottomLeftRadius: 24, 
+    borderBottomRightRadius: 24, 
+    marginBottom: 10 
+  },
+  headerMain: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  headerDivider: {
+    marginVertical: 10,
+    backgroundColor: '#f1f5f9',
+  },
+  statusRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  statusLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 6,
+  },
+  logCount: {
+    fontSize: 12,
+    color: COLORS.muted,
+  },
+  syncButton: {
+    borderRadius: 12,
+  },
+  errorBanner: {
+    backgroundColor: '#fef2f2',
+    marginHorizontal: 15,
+    borderRadius: 12,
+    marginBottom: 10,
+  },
+  specialAccess: {
+    marginHorizontal: 15,
+    padding: 15,
+    backgroundColor: '#f8fafc',
+    borderRadius: 16,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  specialTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: COLORS.text,
+  },
+  specialSub: {
+    fontSize: 11,
+    color: COLORS.muted,
+    marginBottom: 10,
+  },
+  specialButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  accessBtn: {
+    borderRadius: 8,
+    flex: 1,
+  },
   title: { fontSize: 24, fontWeight: 'bold', color: COLORS.text },
   subtitle: { color: COLORS.muted, fontSize: 13 },
   listContent: { padding: 15 },

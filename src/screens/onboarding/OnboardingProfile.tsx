@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
+import { StyleSheet, ScrollView } from 'react-native';
 import { TextInput, Button, Text, SegmentedButtons, Title } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 
@@ -14,7 +14,7 @@ export const OnboardingProfile = () => {
   const handleNext = () => {
     const profileData = {
       name,
-      age: parseInt(age),
+      age: parseInt(age, 10),
       height: parseFloat(height),
       weight: parseFloat(weight),
       gender,

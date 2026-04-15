@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { Title, Card, Text, ProgressBar, Surface } from 'react-native-paper';
+import { Title, Text, ProgressBar, Surface } from 'react-native-paper';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import LinearGradient from 'react-native-linear-gradient';
 import { COLORS, GRADIENTS } from '../../utils/theme';

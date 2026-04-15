@@ -24,6 +24,7 @@ BackgroundFetch.registerHeadlessTask(async (event) => {
       log.value = 0; // Headless
       log.unit = 'system';
       log.timestamp = Date.now();
+      log.createdAt = new Date();
     });
   });
 

@@ -1,5 +1,5 @@
 import { Model } from '@nozbe/watermelondb';
-import { field, readonly, date, text } from '@nozbe/watermelondb/decorators';
+import { field, readonly, date } from '@nozbe/watermelondb/decorators';
 
 export class SleepLog extends Model {
   static table = 'sleep_logs';
@@ -28,5 +28,14 @@ export class MoodLog extends Model {
   @field('timestamp') timestamp!: number;
   @field('mood_score') moodScore!: number;
   @field('notes') notes?: string;
+  @readonly @date('created_at') createdAt!: number;
+}
+
+export class HealthLog extends Model {
+  static table = 'health_logs';
+  @field('type') type!: string;
+  @field('value') value!: number;
+  @field('unit') unit!: string;
+  @field('timestamp') timestamp!: number;
   @readonly @date('created_at') createdAt!: number;
 }

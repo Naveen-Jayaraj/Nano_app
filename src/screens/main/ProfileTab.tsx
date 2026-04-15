@@ -1,12 +1,10 @@
 import React from 'react';
-import { View, StyleSheet, ScrollView, Dimensions } from 'react-native';
-import { Title, Text, Card, List, useTheme, Surface } from 'react-native-paper';
+import { View, StyleSheet, ScrollView } from 'react-native';
+import { Title, Text, Card, List, Surface } from 'react-native-paper';
 import { BarChart } from 'react-native-gifted-charts';
 import LinearGradient from 'react-native-linear-gradient';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { COLORS, GRADIENTS } from '../../utils/theme';
-
-const screenWidth = Dimensions.get('window').width;
 
 const barData = [
   { value: 6, label: 'M', frontColor: COLORS.primary },
@@ -40,7 +38,7 @@ export const ProfileTab = () => {
             yAxisThickness={0}
             xAxisThickness={0}
             hideRules
-            labelTextStyle={{ color: COLORS.muted }}
+            xAxisLabelTextStyle={{ color: COLORS.muted }}
           />
         </Surface>
 
