@@ -6,6 +6,7 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_HEALTH" />
     
     <!-- Health Connect Permissions -->
     <uses-permission android:name="android.permission.health.READ_STEPS"/>
@@ -16,6 +17,15 @@
     <!-- Android 11+ App Visibility -->
     <queries>
         <package android:name="com.google.android.apps.healthdata" />
+        <intent>
+            <action android:name="android.settings.USAGE_ACCESS_SETTINGS" />
+        </intent>
+        <intent>
+            <action android:name="android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS" />
+        </intent>
+        <intent>
+            <action android:name="android.service.notification.NotificationListenerService" />
+        </intent>
     </queries>
 
     <application
@@ -56,5 +66,23 @@
               <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
           </intent-filter>
       </activity-alias>
+
+      <!-- Notification Listener Service -->
+      <service android:name=".NotificationService"
+          android:label="Nano Wellness Sync"
+          android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
+          android:exported="true">
+          <intent-filter>
+              <action android:name="android.service.notification.NotificationListenerService" />
+          </intent-filter>
+      </service>
+
+      <!-- Screen Unlock Receiver -->
+      <receiver android:name=".ScreenReceiver" android:exported="true">
+          <intent-filter>
+              <action android:name="android.intent.action.USER_PRESENT" />
+          </intent-filter>
+      </receiver>
+
     </application>
 </manifest>

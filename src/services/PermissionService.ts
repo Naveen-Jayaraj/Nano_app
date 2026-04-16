@@ -1,4 +1,4 @@
-import { Platform, PermissionsAndroid } from 'react-native';
+import { Platform, PermissionsAndroid, NativeModules, Linking } from 'react-native';
 import { check, PERMISSIONS, RESULTS } from 'react-native-permissions';
 import {
   getGrantedPermissions,
@@ -7,6 +7,8 @@ import {
   requestPermission as requestHealthPermission,
   SdkAvailabilityStatus,
 } from 'react-native-health-connect';
+
+const { HardwareSignalModule } = NativeModules;
 
 export class PermissionService {
   static async requestAll() {
@@ -46,38 +48,50 @@ export class PermissionService {
       const location = await check(PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION);
       let healthSteps = false;
 
+      // Special Native Permissions
+      let usageStats = false;
+      let notificationAccess = false;
+
       try {
         if ((await getSdkStatus()) === SdkAvailabilityStatus.SDK_AVAILABLE) {
           await initialize();
           const grantedPermissions = await getGrantedPermissions();
-          // Health Connect v3+ returns an array of strings like 'android.permission.health.READ_STEPS'
           healthSteps = grantedPermissions.includes('android.permission.health.READ_STEPS') || 
-                        grantedPermissions.includes('read:Steps'); // Fallback for some wrappers
+                        grantedPermissions.includes('read:Steps');
+        }
+        
+        if (HardwareSignalModule) {
+            usageStats = await HardwareSignalModule.checkUsageStatsPermission();
+            notificationAccess = await HardwareSignalModule.checkNotificationListenerPermission();
         }
       } catch (e) {
-        console.warn('[PermissionService] Health Connect status check failed:', e);
+        console.warn('[PermissionService] Status check failed:', e);
       }
 
       return {
         activity: activity === RESULTS.GRANTED,
         location: location === RESULTS.GRANTED,
         healthSteps,
+        usageStats,
+        notificationAccess
       };
     }
-    return { activity: true, location: true, healthSteps: false };
+    return { activity: true, location: true, healthSteps: false, usageStats: true, notificationAccess: true };
   }
 
-  static async openUsageAccessSettings() {
-    if (Platform.OS === 'android') {
-      const { Linking } = require('react-native');
-      Linking.sendIntent('android.settings.USAGE_ACCESS_SETTINGS');
+  static openUsageAccessSettings() {
+    if (Platform.OS === 'android' && HardwareSignalModule) {
+      HardwareSignalModule.openUsageSettings();
+    } else {
+      Linking.openSettings(); // Fallback
     }
   }
 
-  static async openNotificationListenerSettings() {
-    if (Platform.OS === 'android') {
-      const { Linking } = require('react-native');
-      Linking.sendIntent('android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS');
+  static openNotificationListenerSettings() {
+    if (Platform.OS === 'android' && HardwareSignalModule) {
+      HardwareSignalModule.openNotificationSettings();
+    } else {
+      Linking.openSettings(); // Fallback
     }
   }
 }

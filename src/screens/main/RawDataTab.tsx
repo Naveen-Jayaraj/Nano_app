@@ -32,6 +32,10 @@ const LogItem = ({ log }: { log: any }) => {
   else if (rawType === 'uptime') { icon = 'clock-outline'; color = '#8b5cf6'; }
   else if (rawType.startsWith('location')) { icon = 'map-marker'; color = '#ec4899'; }
   else if (rawType === 'sync') { icon = 'sync'; color = COLORS.primary; }
+  else if (rawType === 'screen_time') { icon = 'cellphone-dock'; color = '#06b6d4'; }
+  else if (rawType === 'unlocks') { icon = 'lock-open-outline'; color = '#f43f5e'; }
+  else if (rawType === 'notifications') { icon = 'bell-outline'; color = '#a855f7'; }
+  else if (rawType.startsWith('app')) { icon = 'application-cog'; color = '#10b981'; }
 
   return (
     <View style={styles.logItem}>

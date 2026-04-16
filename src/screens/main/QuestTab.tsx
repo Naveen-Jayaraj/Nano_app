@@ -1,32 +1,75 @@
-import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { Card, Title, Paragraph, Text, ProgressBar, Surface, List } from 'react-native-paper';
-import { getQuestForHour, isSleepTime } from '../../analytics/QuestManager';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Animated, Dimensions } from 'react-native';
+import { Card, Title, Paragraph, Text, ProgressBar, Surface } from 'react-native-paper';
+import { getQuestForHour, isSleepTime, completeQuest, checkQuestCompleted } from '../../analytics/QuestManager';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import LinearGradient from 'react-native-linear-gradient';
 import { COLORS, GRADIENTS } from '../../utils/theme';
 import { SyncService } from '../../services/SyncService';
 
+const { height } = Dimensions.get('window');
+
 export const QuestTab = () => {
   const [currentHour, setCurrentHour] = useState(new Date().getHours());
   const [isCompleted, setIsCompleted] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  
+  // Animation state
+  const xpAnim = useRef(new Animated.Value(0)).current;
+  const xpOpacity = useRef(new Animated.Value(0)).current;
+
+  const quest = getQuestForHour(currentHour);
+  const sleepMode = isSleepTime(currentHour);
 
   useEffect(() => {
     const timer = setInterval(() => {
-      setCurrentHour(new Date().getHours());
-    }, 60000);
+      const now = new Date();
+      if (now.getHours() !== currentHour) {
+        setCurrentHour(now.getHours());
+      }
+    }, 60000); // Check every minute
+
+    // Check if current quest is already completed
+    if (!sleepMode) {
+      checkQuestCompleted(quest.id).then(setIsCompleted);
+    }
+
     return () => clearInterval(timer);
-  }, []);
+  }, [currentHour, quest.id, sleepMode]);
+
+  const triggerXpAnimation = () => {
+    xpAnim.setValue(0);
+    xpOpacity.setValue(1);
+    
+    Animated.parallel([
+      Animated.timing(xpAnim, {
+        toValue: -150,
+        duration: 1500,
+        useNativeDriver: true,
+      }),
+      Animated.timing(xpOpacity, {
+        toValue: 0,
+        duration: 1500,
+        useNativeDriver: true,
+      })
+    ]).start();
+  };
+
+  const handleComplete = async () => {
+    if (isCompleted) return;
+    
+    const success = await completeQuest(quest);
+    if (success) {
+      setIsCompleted(true);
+      triggerXpAnimation();
+    }
+  };
 
   const handleSync = async () => {
     setIsSyncing(true);
     await SyncService.syncAll();
     setTimeout(() => setIsSyncing(false), 1000);
   };
-
-  const quest = getQuestForHour(currentHour);
-  const sleepMode = isSleepTime(currentHour);
 
   if (sleepMode) {
     return (
@@ -35,81 +78,79 @@ export const QuestTab = () => {
             <MaterialCommunityIcons name="moon-waning-crescent" size={60} color="white" />
         </LinearGradient>
         <Title style={styles.title}>Sleep Mode</Title>
-        <Paragraph style={styles.subtitle}>No quests during sleep hours. Rest well and recharge!</Paragraph>
+        <Paragraph style={styles.subtitle}>No quests between 9:00 PM and 7:00 AM. Rest well!</Paragraph>
       </View>
     );
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <View style={styles.header}>
-        <Title style={styles.mainTitle}>Today's Journey</Title>
-        <TouchableOpacity onPress={handleSync} disabled={isSyncing}>
-           <Surface style={styles.syncButton} elevation={2}>
-              <MaterialCommunityIcons 
-                name={isSyncing ? "sync" : "refresh"} 
-                size={20} 
-                color={COLORS.primary} 
-                style={isSyncing ? styles.spinning : null}
-              />
-           </Surface>
-        </TouchableOpacity>
-      </View>
+    <View style={styles.container}>
+      <Animated.View style={[
+        styles.xpAnimation, 
+        { transform: [{ translateY: xpAnim }], opacity: xpOpacity }
+      ]}>
+        <Text style={styles.xpAnimText}>+{quest.xpReward} XP</Text>
+      </Animated.View>
 
-      <Card style={styles.card}>
-        <LinearGradient colors={GRADIENTS.primary} style={styles.cardGradient} start={{x:0, y:0}} end={{x:1, y:1}}>
-          <View style={styles.questHeader}>
-            <Text style={styles.xpBadge}>+{quest.xpReward} XP</Text>
-            <MaterialCommunityIcons name="timer-outline" size={20} color="rgba(255,255,255,0.8)" />
-          </View>
-          <Title style={styles.questName}>{quest.title}</Title>
-          <Text style={styles.questDescription}>{quest.description}</Text>
-          
-          <TouchableOpacity 
-            style={[styles.actionButton, isCompleted && styles.completedButton]}
-            onPress={() => setIsCompleted(true)}
-            disabled={isCompleted}
-          >
-            <Text style={styles.buttonText}>{isCompleted ? 'QUEST COMPLETE' : 'I DID THIS'}</Text>
-            {isCompleted && <MaterialCommunityIcons name="check-circle" size={20} color="white" style={{marginLeft: 10}} />}
+      <ScrollView contentContainerStyle={styles.content}>
+        <View style={styles.header}>
+          <Title style={styles.mainTitle}>Today's Journey</Title>
+          <TouchableOpacity onPress={handleSync} disabled={isSyncing}>
+            <Surface style={styles.syncButton} elevation={2}>
+                <MaterialCommunityIcons 
+                  name={isSyncing ? "sync" : "refresh"} 
+                  size={20} 
+                  color={COLORS.primary} 
+                />
+            </Surface>
           </TouchableOpacity>
-        </LinearGradient>
-      </Card>
-
-      <Surface style={styles.progressSurface} elevation={1}>
-        <View style={styles.progressHeader}>
-           <Title style={styles.progressTitle}>Daily Progress</Title>
-           <Text style={styles.progressCount}>60%</Text>
         </View>
-        <ProgressBar progress={0.6} color={COLORS.primary} style={styles.progressBar} />
-        <View style={styles.progressFooter}>
-          <Text style={styles.footerText}>3 / 5 Quests Completed</Text>
-          <Text style={styles.footerText}>Next: 1:00 PM</Text>
-        </View>
-      </Surface>
 
-      <View style={styles.historySection}>
-         <Title style={styles.sectionTitle}>Upcoming Challenges</Title>
-         <Card style={styles.upcomingCard}>
-            <List.Item
-              title="Social Fast"
-              description="No social media for 2 hours today."
-              left={() => <MaterialCommunityIcons name="account-off-outline" size={24} color={COLORS.secondary} style={styles.listIcon} />}
-            />
-         </Card>
-      </View>
-    </ScrollView>
+        <Card style={styles.card}>
+          <LinearGradient colors={GRADIENTS.primary} style={styles.cardGradient} start={{x:0, y:0}} end={{x:1, y:1}}>
+            <View style={styles.questHeader}>
+              <Text style={styles.xpBadge}>+{quest.xpReward} XP</Text>
+              <MaterialCommunityIcons name="timer-outline" size={20} color="rgba(255,255,255,0.8)" />
+            </View>
+            <Title style={styles.questName}>{quest.title}</Title>
+            <Text style={styles.questDescription}>{quest.description}</Text>
+            
+            <TouchableOpacity 
+              style={[styles.actionButton, isCompleted && styles.completedButton]}
+              onPress={handleComplete}
+              disabled={isCompleted}
+            >
+              <Text style={[styles.buttonText, isCompleted && { color: 'white' }]}>
+                {isCompleted ? 'QUEST COMPLETE' : 'I DID THIS'}
+              </Text>
+              {isCompleted && <MaterialCommunityIcons name="check-circle" size={20} color="white" style={{marginLeft: 10}} />}
+            </TouchableOpacity>
+          </LinearGradient>
+        </Card>
+
+        <Surface style={styles.progressSurface} elevation={1}>
+          <View style={styles.progressHeader}>
+             <Title style={styles.progressTitle}>Daily Engagement</Title>
+             <Text style={styles.progressCount}>{isCompleted ? '100%' : '0%'}</Text>
+          </View>
+          <ProgressBar progress={isCompleted ? 1 : 0.2} color={COLORS.primary} style={styles.progressBar} />
+          <View style={styles.progressFooter}>
+            <Text style={styles.footerText}>{isCompleted ? '1 / 1' : '0 / 1'} Hourly Quests</Text>
+            <Text style={styles.footerText}>Next Refresh: {(currentHour + 1) % 24}:00</Text>
+          </View>
+        </Surface>
+      </ScrollView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   content: { padding: 20 },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40 },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40, backgroundColor: COLORS.background },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   mainTitle: { fontSize: 28, fontWeight: 'bold', color: COLORS.text },
   syncButton: { padding: 10, borderRadius: 12, backgroundColor: 'white' },
-  spinning: { /* Add rotate animation if needed */ },
   sleepCircle: { width: 120, height: 120, borderRadius: 60, justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
   title: { fontSize: 24, fontWeight: 'bold' },
   subtitle: { textAlign: 'center', color: COLORS.muted, marginTop: 10 },
@@ -129,8 +170,20 @@ const styles = StyleSheet.create({
   progressBar: { height: 12, borderRadius: 6, backgroundColor: '#f1f5f9' },
   progressFooter: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 },
   footerText: { fontSize: 12, color: COLORS.muted },
-  historySection: { marginTop: 10 },
-  sectionTitle: { fontSize: 20, fontWeight: '700', marginBottom: 15 },
-  upcomingCard: { borderRadius: 20, backgroundColor: 'white' },
-  listIcon: { marginTop: 10, marginLeft: 10 }
+  xpAnimation: {
+    position: 'absolute',
+    top: height / 2,
+    alignSelf: 'center',
+    zIndex: 1000,
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 30,
+    elevation: 10,
+  },
+  xpAnimText: {
+    color: 'white',
+    fontSize: 24,
+    fontWeight: 'bold',
+  }
 });

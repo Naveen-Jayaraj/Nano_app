@@ -1,4 +1,4 @@
-import { Platform } from 'react-native';
+import { Platform, NativeModules, AppState, AppStateStatus } from 'react-native';
 import {
   getSdkStatus,
   initialize,
@@ -9,6 +9,9 @@ import DeviceInfo from 'react-native-device-info';
 import Geolocation from 'react-native-geolocation-service';
 import { database } from '../data/database';
 import { PermissionService } from './PermissionService';
+import { Q } from '@nozbe/watermelondb';
+
+const { HardwareSignalModule } = NativeModules;
 
 export type SyncStatus = 'idle' | 'syncing' | 'failed' | 'success';
 
@@ -17,6 +20,19 @@ export class SyncService {
   static isSyncing = false;
   static status: SyncStatus = 'idle';
   private static listeners: ((status: SyncStatus, error: string | null) => void)[] = [];
+
+  static init() {
+    // Sync on app startup
+    this.syncAll();
+
+    // Sync whenever the app comes to foreground (Historical Pull strategy)
+    AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
+      if (nextAppState === 'active') {
+        console.log('[SyncService] App resumed - triggering historical sync...');
+        this.syncAll();
+      }
+    });
+  }
 
   static subscribe(callback: (status: SyncStatus, error: string | null) => void) {
     this.listeners.push(callback);
@@ -29,9 +45,6 @@ export class SyncService {
     this.listeners.forEach(l => l(this.status, this.lastError));
   }
 
-  /**
-   * Main sync entry point - called periodically or on app open
-   */
   static async syncAll() {
     if (this.isSyncing) return;
     this.isSyncing = true;
@@ -39,10 +52,9 @@ export class SyncService {
     this.status = 'syncing';
     this.emitChange();
 
-    console.log('[SyncService] Starting full data sync...');
+    console.log('[SyncService] Starting full historical data sync...');
     
     try {
-      // Check permissions first
       const status = await PermissionService.checkStatus();
       
       const syncTasks = [
@@ -51,15 +63,17 @@ export class SyncService {
         this.syncLocation(),
       ];
 
+      // Pull historical data from system logs
+      if (HardwareSignalModule) {
+        syncTasks.push(this.syncHistoricalHardwareSignals(status.usageStats, status.notificationAccess));
+      }
+
       if (status.healthSteps) {
         syncTasks.push(this.syncSteps());
-      } else {
-        console.log('[SyncService] Missing Health Connect Steps permission, skipping steps sync.');
       }
 
       await Promise.all(syncTasks);
       this.status = 'success';
-      console.log('[SyncService] Sync complete.');
     } catch (error: any) {
       this.status = 'failed';
       this.lastError = error.message || 'Unknown sync error';
@@ -70,38 +84,121 @@ export class SyncService {
     }
   }
 
+  static async syncHistoricalHardwareSignals(hasUsage: boolean, hasNotify: boolean) {
+    if (Platform.OS !== 'android' || !HardwareSignalModule) return;
+
+    try {
+      const dateStr = new Date().toISOString().split('T')[0];
+      
+      // 1. App Usage & Screen Time (Historical Pull)
+      let usage = [];
+      let totalScreenTimeMins = 0;
+      if (hasUsage) {
+          usage = await HardwareSignalModule.getAppUsageStats() || [];
+          const totalScreenTimeMs = usage.reduce((sum: number, app: any) => sum + (app.totalTime || 0), 0);
+          totalScreenTimeMins = Math.round(totalScreenTimeMs / 60000);
+      }
+
+      // 2. Unlocks (Historical Count from UsageEvents)
+      const unlocks = await HardwareSignalModule.getHistoricalUnlockCount();
+
+      // 3. Notifications (Accumulated count from listener)
+      let notifications = 0;
+      if (hasNotify) {
+          notifications = await HardwareSignalModule.getNotificationCount();
+      }
+
+      // Save to WatermelonDB
+      await database.write(async () => {
+        if (hasUsage) {
+            await database.get('health_logs').create((log: any) => {
+              log.type = 'screen_time';
+              log.value = totalScreenTimeMins;
+              log.unit = 'mins';
+              log.timestamp = Date.now();
+            });
+
+            // Also log top 5 apps specifically so it shows on the UI
+            if (usage && usage.length > 0) {
+              const topApps = usage.slice(0, 5);
+              for (const app of topApps) {
+                await database.get('health_logs').create((log: any) => {
+                  log.type = `app: ${(app.packageName || 'unknown').split('.').pop()}`;
+                  log.value = Math.round((app.totalTime || 0) / 60000); 
+                  log.unit = 'mins';
+                  log.timestamp = Date.now();
+                });
+              }
+            }
+        }
+
+        await database.get('health_logs').create((log: any) => {
+          log.type = 'unlocks';
+          log.value = unlocks;
+          log.unit = 'count';
+          log.timestamp = Date.now();
+        });
+
+        if (hasNotify) {
+            await database.get('health_logs').create((log: any) => {
+              log.type = 'notifications';
+              log.value = notifications;
+              log.unit = 'count';
+              log.timestamp = Date.now();
+            });
+        }
+
+        // Aggregate into the daily screen_logs table
+        const existingLogs = await database.get('screen_logs').query(
+          Q.where('date', dateStr)
+        ).fetch();
+
+        if (existingLogs.length > 0) {
+          await (existingLogs[0] as any).update((rec: any) => {
+            if (hasUsage) {
+                rec.totalScreenTimeMins = totalScreenTimeMins;
+                rec.appUsage = JSON.stringify(usage.slice(0, 5));
+            }
+            rec.unlocks = unlocks;
+          });
+        } else {
+          await database.get('screen_logs').create((rec: any) => {
+            rec.date = dateStr;
+            rec.totalScreenTimeMins = totalScreenTimeMins;
+            rec.unlocks = unlocks;
+            rec.appUsage = JSON.stringify(usage.slice(0, 5));
+          });
+        }
+      });
+    } catch (e) {
+      console.warn('[SyncService] Hardware signals sync failed:', e);
+    }
+  }
+
   static async syncSteps() {
     try {
       const healthConnectAvailable =
         Platform.OS === 'android' &&
         (await getSdkStatus()) === SdkAvailabilityStatus.SDK_AVAILABLE;
 
-      if (!healthConnectAvailable || !(await initialize())) {
-        console.log('[SyncService] Health Connect unavailable, skipping steps sync.');
-        return;
-      }
+      if (!healthConnectAvailable || !(await initialize())) return;
 
       const now = new Date();
-      const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      const pastHour = new Date(now.getTime() - 60 * 60 * 1000);
       
       const { records } = await readRecords('Steps', {
         timeRangeFilter: {
           operator: 'between',
-          startTime: yesterday.toISOString(),
+          startTime: pastHour.toISOString(),
           endTime: now.toISOString(),
         },
       });
 
-      // FIX: Health Connect records use 'value' (or similar top-level property) depending on version
-      // The user specified it's NOT .count but at the top level.
       const totalSteps = records.reduce((sum, r: any) => {
         const val = r.count !== undefined ? r.count : (r.value !== undefined ? r.value : 0);
         return sum + val;
       }, 0);
       
-      console.log(`[SyncService] Found ${records.length} step records. Total steps: ${totalSteps}`);
-
-      // Save to WatermelonDB
       await database.write(async () => {
         await database.get('health_logs').create((log: any) => {
           log.type = 'steps';
@@ -111,9 +208,7 @@ export class SyncService {
         });
       });
     } catch (e: any) {
-      this.lastError = `Steps: ${e.message}`;
       console.error('[SyncService] Steps sync error:', e);
-      throw e; // Re-throw to be caught by syncAll
     }
   }
 
@@ -137,19 +232,20 @@ export class SyncService {
           log.timestamp = Date.now();
         });
       });
-
-      console.log(
-        `[SyncService] Battery logged: ${Math.round(batteryLevel * 100)}%, charging=${isCharging}`,
-      );
     } catch (e: any) {
-      this.lastError = `Device sync: ${e.message}`;
       console.warn('[SyncService] Device stats sync failed:', e);
     }
   }
 
   static async syncDeviceHealth() {
     try {
-      const temp = await DeviceInfo.getBatteryTemperature();
+      let temp = 0;
+      if (HardwareSignalModule) {
+          temp = await HardwareSignalModule.getNativeTemperature();
+      } else {
+          temp = await DeviceInfo.getBatteryTemperature();
+      }
+      
       const uptime = await DeviceInfo.getUpTime();
 
       await database.write(async () => {
@@ -162,13 +258,11 @@ export class SyncService {
 
         await database.get('health_logs').create((log: any) => {
           log.type = 'uptime';
-          log.value = Math.round(uptime / 1000); // seconds
+          log.value = Math.round(uptime / 1000);
           log.unit = 'seconds';
           log.timestamp = Date.now();
         });
       });
-
-      console.log(`[SyncService] Health metrics logged: temp=${temp}°C, uptime=${Math.round(uptime/1000)}s`);
     } catch (e: any) {
       console.warn('[SyncService] Device health sync failed:', e);
     }
@@ -194,17 +288,12 @@ export class SyncService {
                 log.timestamp = Date.now();
               });
             });
-            console.log(`[SyncService] Location logged: ${latitude}, ${longitude}`);
             resolve();
           } catch (e) {
-            console.warn('[SyncService] Location storage failed:', e);
             resolve();
           }
         },
-        (error) => {
-          console.warn('[SyncService] Location fetch failed:', error.message);
-          resolve();
-        },
+        (error) => resolve(),
         { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
       );
     });
