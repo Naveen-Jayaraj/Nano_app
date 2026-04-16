@@ -10,6 +10,7 @@ import Geolocation from 'react-native-geolocation-service';
 import { database } from '../data/database';
 import { PermissionService } from './PermissionService';
 import { Q } from '@nozbe/watermelondb';
+import BackgroundFetch from 'react-native-background-fetch';
 
 const { HardwareSignalModule } = NativeModules;
 
@@ -73,6 +74,10 @@ export class SyncService {
       }
 
       await Promise.all(syncTasks);
+      
+      // Post-sync Analysis: Contextual Nudges
+      await this.evaluateContextualNudges();
+
       this.status = 'success';
     } catch (error: any) {
       this.status = 'failed';
@@ -81,6 +86,44 @@ export class SyncService {
     } finally {
       this.isSyncing = false;
       this.emitChange();
+    }
+  }
+
+  static async evaluateContextualNudges() {
+    try {
+      const now = new Date();
+      const dateStr = now.toISOString().split('T')[0];
+      const pastHour = now.getTime() - 60 * 60 * 1000;
+
+      // 1. Fetch recent steps in last hour
+      const recentStepsLogs = await database.get('health_logs').query(
+        Q.where('type', 'steps'),
+        Q.where('timestamp', Q.gt(pastHour))
+      ).fetch();
+      
+      const recentSteps = recentStepsLogs.reduce((sum: number, log: any) => sum + log.value, 0);
+
+      // 2. Fetch today's screen time
+      const screenLogs = await database.get('screen_logs').query(
+        Q.where('date', dateStr)
+      ).fetch();
+      
+      let screenMins = 0;
+      if (screenLogs.length > 0) {
+         screenMins = (screenLogs[0] as any).totalScreenTimeMins || 0;
+      }
+
+      // Nudge Logic: Deep Sedentary
+      // Over 45 mins screen time AND less than 100 steps in the past hour
+      if (screenMins > 45 && recentSteps < 100) {
+         const { NotificationService } = require('./NotificationService');
+         await NotificationService.displayLocalNotification(
+            "Time to Move! 🚶‍♂️",
+            "You've been attached to your screen. Stretch your legs to earn extra XP!"
+         );
+      }
+    } catch (e) {
+      console.warn('[SyncService] Failed to evaluate nudges', e);
     }
   }
 
@@ -216,6 +259,14 @@ export class SyncService {
     try {
       const batteryLevel = await DeviceInfo.getBatteryLevel();
       const isCharging = await DeviceInfo.isBatteryCharging();
+
+      // Adaptive Sensor Sampling Logic
+      if (batteryLevel < 0.20 && !isCharging) {
+         console.log('[Adaptive Sensor] Battery critical. Throttling poll rate to 3 hrs.');
+         BackgroundFetch.setConfig({ minimumFetchInterval: 180 }).catch(e => console.warn(e));
+      } else {
+         BackgroundFetch.setConfig({ minimumFetchInterval: 60 }).catch(e => console.warn(e));
+      }
 
       await database.write(async () => {
         await database.get('health_logs').create((log: any) => {

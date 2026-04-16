@@ -7,6 +7,7 @@ import UserProfile from './models/UserProfile';
 import { SleepLog, HydrationLog, MoodLog, HealthLog } from './models/Logs';
 import { StressLog, ActivityLog, ScreenLog, LocationLog } from './models/UsageLogs';
 import { QuestLog, DailyScore, XpLedger } from './models/Scores';
+import UserChallenge from './models/UserChallenge';
 
 const adapter = new SQLiteAdapter({
   schema,
@@ -33,5 +34,6 @@ export const database = new Database({
     QuestLog,
     DailyScore,
     XpLedger,
+    UserChallenge,
   ],
 });

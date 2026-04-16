@@ -1,20 +1,20 @@
-import { MD3LightTheme, configureFonts } from 'react-native-paper';
+import { MD3DarkTheme, configureFonts } from 'react-native-paper';
 
 export const COLORS = {
-  primary: '#6366f1', // Indigo Neon
-  secondary: '#ec4899', // Pink Neon
-  accent: '#8b5cf6', // Violet
-  background: '#ffffff',
-  surface: '#f8fafc',
-  text: '#0f172a',
-  muted: '#64748b',
+  primary: '#3b82f6', // Electric blue
+  secondary: '#7c3aed', // Violet
+  accent: '#06b6d4', // Neon cyan
+  background: '#0a0f1e', // Deep navy
+  surface: '#1a0a2e', // Dark purple
+  text: '#f8fafc',
+  muted: '#94a3b8',
   success: '#22c55e',
-  warning: '#f59e0b',
+  warning: '#f59e0b', // Gold for XP
   danger: '#ef4444',
-  glass: 'rgba(255, 255, 255, 0.8)',
-  glassDark: 'rgba(0, 0, 0, 0.05)',
-  neonBlue: '#00d2ff',
-  neonPurple: '#9d50bb',
+  glass: 'rgba(26, 10, 46, 0.8)',
+  glassDark: 'rgba(0, 0, 0, 0.4)',
+  neonBlue: '#3b82f6',
+  neonPurple: '#7c3aed',
 };
 
 const fontConfig = {
@@ -36,14 +36,22 @@ const fontConfig = {
 };
 
 export const theme = {
-  ...MD3LightTheme,
+  ...MD3DarkTheme,
   colors: {
-    ...MD3LightTheme.colors,
+    ...MD3DarkTheme.colors,
     primary: COLORS.primary,
     secondary: COLORS.secondary,
     tertiary: COLORS.accent,
     background: COLORS.background,
     surface: COLORS.surface,
+    elevation: {
+        level0: 'transparent',
+        level1: '#140c21',
+        level2: '#1a0a2e',
+        level3: '#200b3b',
+        level4: '#270c47',
+        level5: '#2d0d54',
+    },
     outline: COLORS.accent,
   },
   fonts: configureFonts({ config: fontConfig }),
@@ -51,8 +59,9 @@ export const theme = {
 };
 
 export const GRADIENTS = {
-  primary: [COLORS.neonBlue, COLORS.primary],
-  secondary: [COLORS.secondary, COLORS.danger],
-  accent: [COLORS.accent, COLORS.neonPurple],
-  wellness: ['#34d399', '#059669'],
+  primary: [COLORS.surface, COLORS.primary],
+  secondary: [COLORS.surface, COLORS.secondary],
+  accent: [COLORS.primary, COLORS.accent],
+  wellness: ['#0d233a', '#06b6d4'],
+  glow: ['rgba(59, 130, 246, 0.2)', 'rgba(6, 182, 212, 0.05)']
 };

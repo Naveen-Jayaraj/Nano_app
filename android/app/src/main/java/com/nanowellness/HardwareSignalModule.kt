@@ -198,4 +198,16 @@ class HardwareSignalModule(reactContext: ReactApplicationContext) : ReactContext
         val prefs = reactApplicationContext.getSharedPreferences("NanoWellnessPrefs", Context.MODE_PRIVATE)
         prefs.edit().putInt("notification_count_total", 0).putString("notification_timestamps", "").apply()
     }
+
+    @ReactMethod
+    fun exportToDownloads(fileName: String, payload: String, promise: Promise) {
+        try {
+            val downloadsDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
+            val file = java.io.File(downloadsDir, fileName)
+            file.writeText(payload)
+            promise.resolve(file.absolutePath)
+        } catch (e: Exception) {
+            promise.reject("WRITE_ERROR", e.message)
+        }
+    }
 }

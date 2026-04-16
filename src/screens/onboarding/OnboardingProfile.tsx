@@ -26,7 +26,7 @@ export const OnboardingProfile = () => {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Title style={styles.title}>Welcome to Nano</Title>
+      <Title style={styles.title}>Welcome to LifeForge</Title>
       <Text style={styles.subtitle}>Let's set up your profile for a personalized experience.</Text>
       
       <TextInput
@@ -35,6 +35,8 @@ export const OnboardingProfile = () => {
         onChangeText={setName}
         mode="outlined"
         style={styles.input}
+        textColor="#fff"
+        theme={{ colors: { onSurfaceVariant: '#94a3b8', background: '#1e293b', primary: '#38bdf8' } }}
       />
       
       <TextInput
@@ -44,6 +46,8 @@ export const OnboardingProfile = () => {
         keyboardType="numeric"
         mode="outlined"
         style={styles.input}
+        textColor="#fff"
+        theme={{ colors: { onSurfaceVariant: '#94a3b8', background: '#1e293b', primary: '#38bdf8' } }}
       />
       
       <TextInput
@@ -53,6 +57,8 @@ export const OnboardingProfile = () => {
         keyboardType="numeric"
         mode="outlined"
         style={styles.input}
+        textColor="#fff"
+        theme={{ colors: { onSurfaceVariant: '#94a3b8', background: '#1e293b', primary: '#38bdf8' } }}
       />
       
       <TextInput
@@ -62,6 +68,8 @@ export const OnboardingProfile = () => {
         keyboardType="numeric"
         mode="outlined"
         style={styles.input}
+        textColor="#fff"
+        theme={{ colors: { onSurfaceVariant: '#94a3b8', background: '#1e293b', primary: '#38bdf8' } }}
       />
 
       <Text style={styles.label}>Gender</Text>
@@ -69,11 +77,12 @@ export const OnboardingProfile = () => {
         value={gender}
         onValueChange={setGender}
         buttons={[
-          { value: 'male', label: 'Male' },
-          { value: 'female', label: 'Female' },
-          { value: 'other', label: 'Other' },
+          { value: 'male', label: 'Male', checkedColor: '#fff', uncheckedColor: '#94a3b8' },
+          { value: 'female', label: 'Female', checkedColor: '#fff', uncheckedColor: '#94a3b8' },
+          { value: 'other', label: 'Other', checkedColor: '#fff', uncheckedColor: '#94a3b8' },
         ]}
         style={styles.segmented}
+        theme={{ colors: { secondaryContainer: '#38bdf8', outline: '#38bdf8' } }}
       />
 
       <Button
@@ -81,19 +90,20 @@ export const OnboardingProfile = () => {
         onPress={handleNext}
         disabled={!isFormValid}
         style={styles.button}
+        buttonColor="#8b5cf6"
       >
-        Next
+        Embark on Quest
       </Button>
     </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { padding: 20, flexGrow: 1, justifyContent: 'center', backgroundColor: '#fff' },
-  title: { fontSize: 28, fontWeight: 'bold', textAlign: 'center', marginBottom: 10 },
-  subtitle: { textAlign: 'center', marginBottom: 30, color: 'gray' },
+  container: { padding: 20, flexGrow: 1, justifyContent: 'center', backgroundColor: '#0a0f1e' },
+  title: { fontSize: 28, fontWeight: 'bold', textAlign: 'center', marginBottom: 10, color: '#fff' },
+  subtitle: { textAlign: 'center', marginBottom: 30, color: '#94a3b8' },
   input: { marginBottom: 15 },
-  label: { marginBottom: 8, fontSize: 16, fontWeight: '500' },
+  label: { marginBottom: 8, fontSize: 16, fontWeight: '500', color: '#e2e8f0' },
   segmented: { marginBottom: 30 },
   button: { marginTop: 10, paddingVertical: 5 },
 });
